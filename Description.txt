@@ -1,0 +1,13 @@
+หุ่นช้าง
+ESP32_ABU2023_ELEPHANT_V1 - ESP J สีฟ้า (ตัวหลักบนบอร์ด Master)
+ESP32_subMaster_Elephant - ESP J สีแดงจางๆ (ตัวรองบนบอร์ด CRU)
+remoteJame - ESP J สีแดง (รีโหมด Jame)
+remotePalm - ESP P สีฟ้า (รีโหมด Palm)
+
+หุ่นกระต่าย
+ESP32_ABU2023_RABIT_V1 - ESP L สีดำจาง (ตัวหลักบนบอร์ด Master)
+ESP32_subMaster_Rabbit - ESP P สีแดง (ตัวรองบนบอร์ด CRU)
+remoteLEO - ESP L สีดำตัวหนา (รีโหมด LEO)
+
+***เช็คการเสียบ ESP ดีๆก่อนเปิดไฟเข้าหุ่นเสียบให้ถูกด้าน 
+ระวังเสียบไม่ตรงช่องนะ
