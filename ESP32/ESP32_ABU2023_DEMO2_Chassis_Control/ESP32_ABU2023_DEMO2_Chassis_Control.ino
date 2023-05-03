@@ -14,6 +14,8 @@
 #include<esp_now.h>
 #include<SPI.h>
 
+#define delayTime 500
+
 #define m1x       1.0
 #define m1y       1.0
 #define m1z       1.0
@@ -29,6 +31,7 @@
 
 #define maxSpeed   12000
 #define threshold  350
+#define dataSize 121
 uint8_t packet[1024];
 
 uint8_t indConfig = 0b11111111;
@@ -43,7 +46,7 @@ uint64_t timeOutCounter = 0;
 uint8_t RXPacket[1024];
 uint8_t message[1024];
 
-
+uint32_t prevMillis = 0;
 
 typedef struct {
   float kp;
@@ -155,7 +158,7 @@ void messageAssembler(uint8_t *message) {
   *(motor *)(message + 20) = m2;
   *(motor *)(message + 36) = m3;
   *(motor *)(message + 52) = m4;
-  *(uint8_t*)(message + 68) = CRC8_Finder(message, 68);
+  *(uint8_t*)(message + dataSize - 1) = CRC8_Finder(message, dataSize - 1);
 }
 
 void peripheralWrite(uint8_t genOut, uint8_t LEDR, uint8_t LEDL, uint8_t ind) {
@@ -247,7 +250,7 @@ void setup() {
   pinMode(periLatch, OUTPUT);
   digitalWrite(periLatch, HIGH);
   WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0);
-  SPI.beginTransaction(SPISettings(24000000, MSBFIRST, SPI_MODE0));
+  SPI.beginTransaction(SPISettings(16000000, MSBFIRST, SPI_MODE0));
   SPI.begin(E12_SCLK, E12_MISO, E12_MOSI, 36);
   writeChipSelect(0xFF);
 
@@ -295,8 +298,31 @@ void updateSpeed() {
   }
 }
 
+void sendData() {
+  messageAssembler(message);
+  writeChipSelect(0xFE);
+  delayMicroseconds(1);
+  for (uint8_t i = 0; i < dataSize; i++) {
+    RXPacket[i] = SPI.transfer(message[i]);
+  }
+  delayMicroseconds(1);
+  writeChipSelect(0xFF);
+}
+
+void displayParameter() {
+  Serial.println("");
+  Serial.println("");
+  Serial.println("");
+  Serial.println("");
+  Serial.print("kp : "); Serial.print(m1.kp, 10); Serial.print(" "); Serial.print(m2.kp, 10); Serial.print(" "); Serial.print(m3.kp, 10); Serial.print(" "); Serial.println(m4.kp, 10);
+  Serial.print("ki : "); Serial.print(m1.ki, 10); Serial.print(" "); Serial.print(m2.ki, 10); Serial.print(" "); Serial.print(m3.ki, 10); Serial.print(" "); Serial.println(m4.ki, 10);
+  Serial.print("kd : "); Serial.print(m1.kd, 10); Serial.print(" "); Serial.print(m2.kd, 10); Serial.print(" "); Serial.print(m3.kd, 10); Serial.print(" "); Serial.println(m4.kd, 10);
+  Serial.print("ks : "); Serial.print(m1.speed, 10); Serial.print(" "); Serial.print(m2.speed, 10); Serial.print(" "); Serial.print(m3.speed, 10); Serial.print(" "); Serial.println(m4.speed, 10);
+  Serial.print("en : "); Serial.print(speedFlag[0]); Serial.print("            "); Serial.print(speedFlag[1]); Serial.print("            "); Serial.print(speedFlag[2]); Serial.print("            "); Serial.print(speedFlag[3]); Serial.println("           ");
+
+}
 void loop() {
-  while (Serial.available() > 0) {
+ /* while (Serial.available() > 0) {
     String temp = Serial.readString();
     if (temp[1] == 'p') {
       if (temp[3] == '1') {
@@ -400,12 +426,7 @@ void loop() {
       }
     }
     updateSpeed();
-    Serial.print("kp : "); Serial.print(m1.kp, 10); Serial.print(" "); Serial.print(m2.kp, 10); Serial.print(" "); Serial.print(m3.kp, 10); Serial.print(" "); Serial.println(m4.kp, 10);
-    Serial.print("ki : "); Serial.print(m1.ki, 10); Serial.print(" "); Serial.print(m2.ki, 10); Serial.print(" "); Serial.print(m3.ki, 10); Serial.print(" "); Serial.println(m4.ki, 10);
-    Serial.print("kd : "); Serial.print(m1.kd, 10); Serial.print(" "); Serial.print(m2.kd, 10); Serial.print(" "); Serial.print(m3.kd, 10); Serial.print(" "); Serial.println(m4.kd, 10);
-    Serial.print("ks : "); Serial.print(m1.speed, 10); Serial.print(" "); Serial.print(m2.speed, 10); Serial.print(" "); Serial.print(m3.speed, 10); Serial.print(" "); Serial.println(m4.speed, 10);
-    Serial.print("en : "); Serial.print(speedFlag[0]); Serial.print("            "); Serial.print(speedFlag[1]); Serial.print("            "); Serial.print(speedFlag[2]); Serial.print("            "); Serial.print(speedFlag[3]); Serial.println("           ");
-    Serial.println("");
+
     if (temp[1] == 'm') {
       Serial.println(WiFi.macAddress());
     }
@@ -419,9 +440,13 @@ void loop() {
       }
     }
   }
-
+*/
   updateSpeed();
 
+  if(millis() - prevMillis > delayTime){
+    displayParameter();
+    prevMillis = millis();  
+  }
 
 
   if (stateRT != laststateRT) {
@@ -456,14 +481,7 @@ void loop() {
     peripheralWrite(0, 0xFF, 0xFF, indConfig);
   }
 
-  messageAssembler(message);
-  writeChipSelect(0xFE);
-  delayMicroseconds(1);
-  for (uint8_t i = 0; i < 69; i++) {
-    RXPacket[i] = SPI.transfer(message[i]);
-  }
-  delayMicroseconds(1);
-  writeChipSelect(0xFF);
+  sendData();
   indConfig &= ~(1 << 0);
   peripheralWrite(0, 0xFF, 0xFC, indConfig);
   delay(1);
