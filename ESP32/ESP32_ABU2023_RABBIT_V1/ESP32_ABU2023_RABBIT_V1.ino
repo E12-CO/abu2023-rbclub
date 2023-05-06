@@ -332,6 +332,9 @@ void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
   }
   calculateSpeed();
   calculateRollerSpeed();
+  
+  calculateElevationSpeed();
+  calculateLiftSpeed();
 
   /*
     Serial.print(myData.rt);
@@ -429,8 +432,6 @@ void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
 
 void loop() {
   calculateSubSystem();
-  calculateElevationSpeed();
-  calculateLiftSpeed();
 
   timeOutCounter++;
   if (timeOutCounter > 200) {

@@ -1,9 +1,9 @@
 #include "stdint.h"
 #include "E12_Function.h"
 
-uint8_t broadcastAddress[] = { 0xA0, 0xB7, 0x65, 0x60, 0xB7, 0x70 };
-uint8_t returnAddressPalm[] = { 0x94, 0xE6, 0x86, 0x3C, 0x94, 0x5C };
-uint8_t returnAddressJame[] = { 0xE0, 0x5A, 0x1B, 0xA1, 0x04, 0x40 };
+uint8_t broadcastAddress[] = { 0xA0, 0xB7, 0x65, 0x60, 0xB7, 0x70 }; // ไป SubMaster
+uint8_t returnAddressPalm[] = { 0x94, 0xE6, 0x86, 0x3C, 0x94, 0x5C }; // ไป รีโมท ปาล์ม
+uint8_t returnAddressJame[] = { 0xE0, 0x5A, 0x1B, 0xA1, 0x04, 0x40 }; // ไป รีโมท เจมส์
 
 volatile esp_err_t result;
 
@@ -22,17 +22,24 @@ int16_t maxComponent = 0;
 #define m4y 1.0
 #define m4z 1.0
 
-#define maxRollerSpeed 5200
-
-#define maxSpeed 24000
+//Settable Parameter
 #define threshold 350
+#define maxSpeed 24000
+#define maxRollerSpeed 5200
+#define maxSpeedCoefficient 0.5
+#define minSpeedCoefficient 0.1
+#define maxPWMCoefficient 1
+#define minPWMCoefficient 0.7
+#define communicationTimeOut 200
+
+
+
 uint8_t packet[1024];
 uint64_t timeOutCounterPalm = 0;
 uint64_t timeOutCounterJame = 0;
 volatile uint64_t generalCounter = 0;
 
-float manualSpeedCoefficientJame = 0.7;
-float manualSpeedCoefficientPalm = 0.7;
+
 
 uint8_t indConfig = 0b11111111;
 uint8_t robotJameStarted = 1;
@@ -59,13 +66,19 @@ motor motorDefault = { motorParameterDefault,
                        positionControlDefault,
                        speedControlCMD };
 uint8_t displayEnable = 0;
+
 float speedCoefficientJame = 0.2;
 float speedCoefficientPalm = 0.2;
+float manualSpeedCoefficientJame = 0.7;
+float manualSpeedCoefficientPalm = 0.7;
+
 uint8_t speedFlag[4] = { 0, 0, 0, 0 };
-float calculatedSpeed[4] = { 0, 0, 0, 0 };
+
 float mSpeed[4] = { 0, 0, 0, 0 };
 uint32_t counter5 = 0;
-int16_t calculatedPWM[4] = { 0, 0, 0, 0 };
+
+float calculatedSpeed[4] = { 0, 0, 0, 0 }; //ClosedLoop Mode (not geegeemode)
+int16_t calculatedPWM[4] = { 0, 0, 0, 0 }; //OpenLoop Mode (geegeemode)
 
 motor MOTOR[4] = { motorDefault, motorDefault, motorDefault, motorDefault };
 
@@ -134,7 +147,7 @@ uint16_t cmdCounter = 0;
 uint32_t firstMillis = 0;
 int32_t elevationCounter = 0;
 int32_t prevElevationCounter = 0;
-#define elevationInterval 100
+#define elevationInterval 100 //not more than 300 or less than 30
 uint32_t prevElevationMillis = 0;
 uint8_t elevationDir = 0;
 uint8_t elevationRunning = 0;
@@ -369,15 +382,15 @@ void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
     speedCoefficientJame += (kineticData.encr - prevJameEncR) * 0.05;
     manualSpeedCoefficientJame += (kineticData.encr - prevJameEncR) * 0.05;
     prevJameEncR = kineticData.encr;
-    if (speedCoefficientJame > 0.5) {
-      speedCoefficientJame = 0.5;
-    } else if (speedCoefficientJame < 0.1) {
-      speedCoefficientJame = 0.1;
+    if (speedCoefficientJame > maxSpeedCoefficient) {
+      speedCoefficientJame = maxSpeedCoefficient;
+    } else if (speedCoefficientJame < minSpeedCoefficient) {
+      speedCoefficientJame = minSpeedCoefficient;
     }
-    if (manualSpeedCoefficientJame > 1) {
-      manualSpeedCoefficientJame = 1;
-    } else if (manualSpeedCoefficientJame < 0.7) {
-      manualSpeedCoefficientJame = 0.7;
+    if (manualSpeedCoefficientJame > maxPWMCoefficient) {
+      manualSpeedCoefficientJame = maxPWMCoefficient;
+    } else if (manualSpeedCoefficientJame < minPWMCoefficient) {
+      manualSpeedCoefficientJame = minPWMCoefficient;
     }
   }
 
@@ -385,16 +398,16 @@ void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
     speedCoefficientPalm += (aimmingData.encl - prevPalmEncL) * 0.05;
     manualSpeedCoefficientPalm += (aimmingData.encl - prevPalmEncL) * 0.05;
     prevPalmEncL = aimmingData.encl;
-    if (speedCoefficientPalm > 0.5) {
-      speedCoefficientPalm = 0.5;
-    } else if (speedCoefficientPalm < 0.1) {
-      speedCoefficientPalm = 0.1;
+    if (speedCoefficientPalm > maxSpeedCoefficient) {
+      speedCoefficientPalm = maxSpeedCoefficient;
+    } else if (speedCoefficientPalm < minSpeedCoefficient) {
+      speedCoefficientPalm = minSpeedCoefficient;
     }
-    if (manualSpeedCoefficientPalm > 1){
-      manualSpeedCoefficientPalm = 1;
+    if (manualSpeedCoefficientPalm > maxPWMCoefficient){
+      manualSpeedCoefficientPalm = maxPWMCoefficient;
     }
-    else if (manualSpeedCoefficientPalm < 0.7){
-      manualSpeedCoefficientPalm = 0.7;
+    else if (manualSpeedCoefficientPalm < minPWMCoefficient){
+      manualSpeedCoefficientPalm = minPWMCoefficient;
     }
   }
 
@@ -416,7 +429,7 @@ void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
   updateSpeed();
   calculateRollerSpeed(aimmingData);
   calculateChassisFeederSpeed(kineticData);
-  calculateGripperSpeed(kineticData);
+  
   calculateElevationSpeed(aimmingData);
   calculateLiftSpeed(kineticData);
   /*
@@ -469,6 +482,13 @@ void setPIDParameters() {
 
   Q2.setSpeedPID(1, 1.8, 2, 0);
   Q2.setSpeedPID(2, 1.8, 2, 0);
+
+  Q2.setPWM(3,0,0);
+  Q2.setPWM(4,0,0);
+  Q3.setPWM(1,0,0);
+  Q3.setPWM(2,0,0);
+  Q3.setPWM(3,0,0);
+  Q3.setPWM(4,0,0);
 }
 
 void setup() {
@@ -584,10 +604,10 @@ void returnPacketProcessJame() {
 
 
 void loop() {
-
+  calculateGripperSpeed(kineticData);
   timeOutCounterPalm++;
   timeOutCounterJame++;
-  if (timeOutCounterPalm > 200) {
+  if (timeOutCounterPalm > communicationTimeOut) {
     setSafeStatePalm();
     indConfig &= ~(1 << 5);
     peripheralWrite(0, 0xFF, 0xFF, indConfig);
@@ -596,7 +616,7 @@ void loop() {
     returnPacketProcessPalm();
   }
 
-  if (timeOutCounterJame > 200) {
+  if (timeOutCounterJame > communicationTimeOut) {
     setSafeStateJame();
     indConfig &= ~(1 << 5);
     peripheralWrite(0, 0xFF, 0xFF, indConfig);
@@ -605,7 +625,7 @@ void loop() {
     returnPacketProcessJame();
   }
 
-  if (timeOutCounterPalm <= 200 && timeOutCounterJame <= 200) {
+  if (timeOutCounterPalm <= communicationTimeOut && timeOutCounterJame <= communicationTimeOut) {
     indConfig |= (1 << 5);
     peripheralWrite(0, 0xFF, 0xFF, indConfig);
   }
