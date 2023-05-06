@@ -57,16 +57,16 @@ unsigned long lastDebounceTimeRT = 0, lastDebounceTimeRD = 0, lastDebounceTimeRL
 unsigned long lastDebounceTimeLT = 0, lastDebounceTimeLD = 0, lastDebounceTimeLL = 0, lastDebounceTimeLR = 0;
 
 typedef struct {
-  uint32_t started;
-  uint32_t cycleMillis;
-  int32_t id;
-  int32_t encl, encr;
-  int32_t x, y, z, w;
-  uint8_t rt, rd, rl, rr, lt, ld, ll, lr;
-  uint8_t com1, com2, com3, com4, com5;
+  uint32_t started = 1;
+  uint32_t cycleMillis = 0;
+  int32_t id = 1;
+  int32_t encl = 0, encr = 0;
+  int32_t x = 2000, y = 2000, z = 2000, w = 2000;
+  uint8_t rt = 1, rd = 1, rl = 1, rr = 1, lt = 1, ld = 1, ll = 1, lr = 1;
+  uint8_t com1 = 1, com2 = 1, com3 = 1, com4 = 1, com5 = 1;
 } packet_t;
 
-packet_t packet = { 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,0 };
+packet_t packet;
 
 typedef struct {
   uint32_t acknowledge;
@@ -138,6 +138,7 @@ void setup() {
   stateEncodeL = 0;
   //encoder2.clearCount();
   WiFi.mode(WIFI_STA);
+  WiFi.setSleep(false);
   WiFi.disconnect();
   while (esp_now_init() != ESP_OK) {
     digitalWrite(ind1, HIGH);
@@ -146,13 +147,14 @@ void setup() {
     delay(100);
   }
 
-  esp_now_register_recv_cb(OnDataRecv);
+  
   esp_now_register_send_cb(sentExecuted);
   esp_now_peer_info_t peerInfo = {};
   memcpy(peerInfo.peer_addr, broadcastAddress, 6);
   peerInfo.channel = 1;
   peerInfo.encrypt = false;
   esp_now_add_peer(&peerInfo);
+  esp_now_register_recv_cb(OnDataRecv);
 
   WiFi.setTxPower(WIFI_POWER_19_5dBm);
   Serial.begin(1000000);
@@ -201,7 +203,7 @@ void loop() {
   } else {
     //digitalWrite(2,LOW);
   }
-  delay(10);
+  delay(15);
  // Serial.println(millis());
 
   /*

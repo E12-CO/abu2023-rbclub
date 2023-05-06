@@ -108,13 +108,13 @@ uint8_t ackCounterPalm = 0;
 uint8_t ackCounterJame = 0;
 
 typedef struct struct_message {
-  uint32_t started;
-  uint32_t cycleMillis;
-  int32_t id;
-  int32_t encl, encr;
-  int32_t x, y, z, w;
-  uint8_t rt, rd, rl, rr, lt, ld, ll, lr;
-  uint8_t com1, com2, com3, com4, com5;
+  uint32_t started = 0;
+  uint32_t cycleMillis = 0;
+  int32_t id = 0;
+  int32_t encl = 0, encr = 0;
+  int32_t x = 2000, y = 2000, z = 2000, w = 2000;
+  uint8_t rt = 1, rd = 1, rl = 1, rr = 1, lt = 1, ld = 1, ll = 1, lr = 1;
+  uint8_t com1 = 1, com2 = 1, com3 = 1, com4 = 1, com5 = 1;
 } struct_message;
 
 int32_t prevJameEncL = 0;
@@ -124,9 +124,7 @@ int32_t prevPalmEncR = 0;
 
 struct_message bufferData, kineticData, aimmingData;
 
-struct_message defaultMessage = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
-
-hw_timer_t *timer1 = NULL;
+struct_message defaultMessage;
 
 typedef struct {
   uint32_t acknowledge;
@@ -462,16 +460,7 @@ void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
     Serial.print (myData.w);
     Serial.println(" ");*/
 }
-/*
-void IRAM_ATTR onTimer() {
-  updateSpeed();
-  for (uint8_t j = 0; j < 4; j++) {
-    Q1.setCMD(j + 1, speedControlCMD);
-  }
-  Q1.getPacket(TXPacket);
-  sendData();
-  generalCounter++;
-}*/
+
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
   //Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Successfully Transmitted" : "Failed To Transmitted");
 }
@@ -489,58 +478,6 @@ void setPIDParameters() {
   Q3.setPWM(2,0,0);
   Q3.setPWM(3,0,0);
   Q3.setPWM(4,0,0);
-}
-
-void setup() {
-  setPIDParameters();
-  E12BusSetup(16000000);
-  for (uint16_t i = 0; i < 256; i++) {
-    packet[i] = i + 1;
-  }
-
-  Serial.begin(1000000);
-
-  WiFi.mode(WIFI_STA);
-  WiFi.disconnect();
-  if (esp_now_init() != ESP_OK) {
-    return;
-  }
-  esp_now_peer_info_t peerInfo = {};
-  memcpy(peerInfo.peer_addr, broadcastAddress, 6);
-  peerInfo.channel = 1;
-  peerInfo.encrypt = false;
-  if (esp_now_add_peer(&peerInfo) != ESP_OK) {
-    Serial.println("Failed to add peer");
-    return;
-  }
-
-  memcpy(peerInfo.peer_addr, returnAddressPalm, 6);
-  peerInfo.channel = 1;
-  peerInfo.encrypt = false;
-  if (esp_now_add_peer(&peerInfo) != ESP_OK) {
-    Serial.println("Failed to add peer");
-    return;
-  }
-
-  memcpy(peerInfo.peer_addr, returnAddressJame, 6);
-  peerInfo.channel = 1;
-  peerInfo.encrypt = false;
-  if (esp_now_add_peer(&peerInfo) != ESP_OK) {
-    Serial.println("Failed to add peer");
-    return;
-  }
-  
-  esp_now_register_send_cb(OnDataSent);
-
-  //timer1 = timerBegin(1, 80, true);
-
-  //timerAttachInterrupt(timer1, &onTimer, true);
-  //timerAlarmWrite(timer1, 2000, true);
-  //timerAlarmEnable(timer1);
-
-  esp_now_register_recv_cb(OnDataRecv);
-
-  WiFi.setTxPower(WIFI_POWER_19_5dBm);
 }
 
 void setSafeStateJame() {
@@ -570,6 +507,59 @@ void setSafeStatePalm() {
     updateSpeed();
   }
 }
+
+
+void setup() {
+  aimmingData.id = 1;
+  setPIDParameters();
+  E12BusSetup(16000000);
+  for (uint16_t i = 0; i < 256; i++) {
+    packet[i] = i + 1;
+  }
+
+  Serial.begin(1000000);
+
+  WiFi.mode(WIFI_STA);
+  WiFi.setSleep(false);
+  WiFi.disconnect();
+  if (esp_now_init() != ESP_OK) {
+    return;
+  }
+  //esp_now_register_send_cb(OnDataSent);
+  esp_now_peer_info_t peerInfo = {};
+  memcpy(peerInfo.peer_addr, broadcastAddress, 6);
+  peerInfo.channel = 1;
+  peerInfo.encrypt = false;
+  if (esp_now_add_peer(&peerInfo) != ESP_OK) {
+    Serial.println("Failed to add peer");
+    return;
+  }
+
+  memcpy(peerInfo.peer_addr, returnAddressPalm, 6);
+  peerInfo.channel = 1;
+  peerInfo.encrypt = false;
+  if (esp_now_add_peer(&peerInfo) != ESP_OK) {
+    Serial.println("Failed to add peer");
+    return;
+  }
+
+  memcpy(peerInfo.peer_addr, returnAddressJame, 6);
+  peerInfo.channel = 1;
+  peerInfo.encrypt = false;
+  if (esp_now_add_peer(&peerInfo) != ESP_OK) {
+    Serial.println("Failed to add peer");
+    return;
+  }
+  
+  
+  esp_now_register_recv_cb(OnDataRecv);
+
+  WiFi.setTxPower(WIFI_POWER_19_5dBm);
+
+  setSafeStateJame();
+  setSafeStatePalm();
+}
+
 
 void returnPacketProcessPalm() {
 

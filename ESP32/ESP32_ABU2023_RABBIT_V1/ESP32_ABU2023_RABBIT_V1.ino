@@ -332,7 +332,7 @@ void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
   }
   calculateSpeed();
   calculateRollerSpeed();
-  
+
   calculateElevationSpeed();
   calculateLiftSpeed();
 
@@ -392,18 +392,13 @@ void setup() {
   Serial.begin(115200);
 
   WiFi.mode(WIFI_STA);
-
+  WiFi.setSleep(false);
   if (esp_now_init() != ESP_OK) {
     return;
   }
 
+  //esp_now_register_send_cb(OnDataSent);
 
-
-  //timer1 = timerBegin(1, 80, true);
-
-  //timerAttachInterrupt(timer1, &onTimer, true);
-  //timerAlarmWrite(timer1, 2000, true);
-  //timerAlarmEnable(timer1);
   esp_now_peer_info_t peerInfo = {};
   memcpy(peerInfo.peer_addr, broadcastAddress, 6);
   peerInfo.channel = 0;
@@ -421,10 +416,18 @@ void setup() {
     return;
   }
 
-  esp_now_register_send_cb(OnDataSent);
-
   esp_now_register_recv_cb(OnDataRecv);
   WiFi.setTxPower(WIFI_POWER_19_5dBm);
+
+  for (uint8_t i = 0; i < 4; i++) {
+    Q1.setPWM(i + 1, 0, 0);
+  }
+  upperRollerSpeed = 0;
+  lowerRollerSpeed = 0;
+  Q2.setSpeed(1, upperRollerSpeed);
+  Q2.setSpeed(2, lowerRollerSpeed);
+  Q2.setPWM(3, 0, 0);
+  Q2.setPWM(4, 0, 0);
 }
 
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
