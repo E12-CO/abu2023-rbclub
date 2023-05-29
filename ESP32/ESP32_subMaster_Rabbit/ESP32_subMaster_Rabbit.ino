@@ -16,8 +16,6 @@ struct_message myData;
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   memcpy(&myData, incomingData, sizeof(myData));
   timeOutCounter = 0;
-  CRU.writeInd(0x02);
-  CRU.update();
 }
  
 void setup() {
@@ -35,25 +33,32 @@ void setup() {
 }
  
 void loop() {
-  if(myData.feedMotor){
-    CRU.writeMotor(0,4095,0x01);
+  if(myData.feedMotor == 1){
+    CRU.writeMotor(2,4095,0x01);
+    CRU.writeInd(0x04);
+    CRU.update();
+  }
+  else if(myData.feedMotor == 2){
+    CRU.writeMotor(2,4095,0x02);
+    CRU.writeInd(0x08);
     CRU.update();
   }
   else{
-    CRU.writeMotor(0,0,0x00);
+    CRU.writeMotor(2,4095,0x00);
+    CRU.writeInd(0x01);
     CRU.update();
   }
 
   if(myData.lockMotor == 2){
-    CRU.writeMotor(1,3600,0x01);
+    CRU.writeMotor(3,3600,0x01);
     CRU.update();
   }
   else if (myData.lockMotor == 1){
-    CRU.writeMotor(1,3600,0x02);
+    CRU.writeMotor(3,3600,0x02);
     CRU.update();
   }
   else{
-    CRU.writeMotor(1,3600,0);
+    CRU.writeMotor(3,3600,0);
     CRU.update();
   }
   timeOutCounter++;
@@ -62,6 +67,10 @@ void loop() {
       CRU.writeMotor(i,0,0);
     }
     CRU.writeInd(0x03);
+    CRU.update();
+  }
+  else{
+    
     CRU.update();
   }
   delay(1);

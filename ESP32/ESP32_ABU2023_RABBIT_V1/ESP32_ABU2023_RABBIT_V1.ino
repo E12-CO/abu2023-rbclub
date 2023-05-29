@@ -159,7 +159,7 @@ void calculateSubSystem() {
   esp_now_send(broadcastAddress, (uint8_t *)&subData, sizeof(sub_message));
 }
 
-void calculateRollerSpeed() {
+void calculateRollerSpeed() {/*
   if (!stateRD) {
     upperRollerSpeed = 0;
     lowerRollerSpeed = 0;
@@ -172,7 +172,7 @@ void calculateRollerSpeed() {
   } else if (!stateRL) {
     upperRollerSpeed = -5200;
     lowerRollerSpeed = -5200;
-  }
+  }*/
 
   //rollerSpeed
 

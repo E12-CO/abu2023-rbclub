@@ -85,6 +85,13 @@ uint32_t prevElevationMillis = 0;
 uint8_t elevationDir = 0;
 uint8_t elevationRunning = 0;
 
+int32_t collectingArmCounter = 0;
+int32_t prevCollectingArmCounter = 0;
+#define collectingArmInterval 50
+uint32_t prevCollectingArmMillis = 0;
+uint8_t collectingArmDir = 0;
+uint8_t collectingArmRunning = 0;
+
 typedef struct {
   uint32_t started;
   int32_t id;
@@ -144,23 +151,25 @@ void calculateElevationSpeed() {
 }
 
 void calculateSubSystem() {
-  if (!stateLT) {
+  if (!stateRT) {
     subData.lockMotor = 1;
-  } else if (!stateLD) {
+  } else if (!stateRD) {
     subData.lockMotor = 2;
   } else {
     subData.lockMotor = 0;
   }
 
-  if (upperRollerSpeed != 0) {
+  if (!stateRR) {
     subData.feedMotor = 1;
+  } else if (!stateRL) {
+    subData.feedMotor = 2;
   } else {
     subData.feedMotor = 0;
   }
   esp_now_send(broadcastAddress, (uint8_t *)&subData, sizeof(sub_message));
 }
 
-void calculateRollerSpeed() {
+void calculateRollerSpeed() {/*
   if (!stateRD) {
     upperRollerSpeed = 0;
     lowerRollerSpeed = 0;
@@ -173,13 +182,12 @@ void calculateRollerSpeed() {
   } else if (!stateRL) {
     upperRollerSpeed = -5200;
     lowerRollerSpeed = -5200;
-  }
+  }*/
 
   //rollerSpeed
 
   if (myData.encl != prevEncL) {
-    upperRollerSpeed += (myData.encl - prevEncL) * 100;
-    lowerRollerSpeed += (myData.encl - prevEncL) * 100;
+    collectingArmCounter += (myData.encl - prevEncL);
     prevEncL = myData.encl;
   }
 
@@ -199,43 +207,47 @@ void calculateRollerSpeed() {
     elevationCounter += (myData.encr - prevEncR);
     prevEncR = myData.encr;
   }
-
-  if (!stateLL) {
-    Q2.setPWM(4, 3200, 0x01);
-  } else if (!stateLR) {
-    Q2.setPWM(4, 3200, 0x02);
-  } else {
-    Q2.setPWM(4, 4200, 0);
-  }
 }
 
 void calculateLiftSpeed() {
-
-  if (!stateCom4) {
-
-    if (!stateCom1) {
-      Q1.setPWM(3, 3600, 0x01);
-    } else {
-      Q1.setPWM(3, 4200, 0);
-    }
-
-    if (!stateCom2) {
-      Q1.setPWM(4, 3600, 0x01);
-    } else {
-      Q1.setPWM(4, 4200, 0);
-    }
+  if (!stateCom1) {
+    Q2.setPWM(4, 4200, 0x01);
+    Serial.println("A");
+  } else if (!stateCom2) {
+    Q2.setPWM(4, 4200, 0x02);
   } else {
-    if (!stateCom1) {
-      Q1.setPWM(3, 3200, 0x02);
+    Q2.setPWM(4, 4200, 0);
+  }
+
+}
+
+void calculateCollectingArm() {
+  if (collectingArmCounter > prevCollectingArmCounter && !collectingArmRunning) {
+    prevCollectingArmMillis = millis();
+    collectingArmDir = 1;
+    Q1.setPWM(4, 4200, collectingArmDir);
+    collectingArmRunning = 1;
+  } else if (collectingArmCounter < prevCollectingArmCounter && !collectingArmRunning) {
+    prevCollectingArmMillis = millis();
+    collectingArmDir = 2;
+    Q1.setPWM(4, 4200, collectingArmDir);
+    collectingArmRunning = 1;
+  }
+
+  if (millis() - prevCollectingArmMillis > collectingArmInterval && collectingArmRunning) {
+
+    if (collectingArmDir == 1) {
+      prevCollectingArmCounter++;
+    } else if (collectingArmDir == 2) {
+      prevCollectingArmCounter--;
     } else {
-      Q1.setPWM(3, 4200, 0);
+      prevCollectingArmCounter = collectingArmCounter;
     }
 
-    if (!stateCom2) {
-      Q1.setPWM(4, 3200, 0x02);
-    } else {
+    if (prevCollectingArmCounter == collectingArmCounter) {
       Q1.setPWM(4, 4200, 0);
     }
+    collectingArmRunning = 0;
   }
 }
 
@@ -276,9 +288,9 @@ void calculateSpeed() {
 
   switch (controlMode) {
     case 0:
-      M1 = (int16_t)(m1x * xComponent - m1z * zComponent*0.7) / 2048.00 * 4200.00;
-      M2 = (int16_t)(-m2y * yComponent * 0.88603 + m2x * xComponent * 0.88603 + m2z * zComponent*0.7) / 2048.00 * 4200.00;
-      M3 = (int16_t)(m3y * yComponent * 0.88603 + m3x * xComponent * 0.88603 + m3z * zComponent*0.7) / 2048.00 * 4200.00;
+      M1 = (int16_t)(m1x * xComponent - m1z * zComponent * 0.7) / 2048.00 * 4200.00;
+      M2 = (int16_t)(-m2y * yComponent * 0.88603 + m2x * xComponent * 0.88603 + m2z * zComponent * 0.7) / 2048.00 * 4200.00;
+      M3 = (int16_t)(m3y * yComponent * 0.88603 + m3x * xComponent * 0.88603 + m3z * zComponent * 0.7) / 2048.00 * 4200.00;
       break;
     case 1:
       M1 = 0;
@@ -289,14 +301,14 @@ void calculateSpeed() {
   maxMotorSpeed = abs(M1);
   maxMotorSpeed = max(abs(M1), abs(M2));
   maxMotorSpeed = max(abs(M2), abs(M3));
-  
+
   if (maxMotorSpeed < 4200) {
     maxMotorSpeed = 4200;
   }
 
-  M1 = (float)M1 / maxMotorSpeed * 4200.00*speedCoefficient;
-  M2 = (float)M2 / maxMotorSpeed * 4200.00*speedCoefficient;
-  M3 = (float)M3 / maxMotorSpeed * 4200.00*speedCoefficient;
+  M1 = (float)M1 / maxMotorSpeed * 4200.00 * speedCoefficient;
+  M2 = (float)M2 / maxMotorSpeed * 4200.00 * speedCoefficient;
+  M3 = (float)M3 / maxMotorSpeed * 4200.00 * speedCoefficient;
 
   if (M1 > 4200) {
     Q1.setPWM(1, 4200, 0x01);
@@ -366,10 +378,17 @@ void OnDataRecv(const uint8_t *mac, const uint8_t *incomingData, int len) {
   }
   calculateSpeed();
   calculateRollerSpeed();
-
+  calculateLiftSpeed();
   calculateElevationSpeed();
-  //calculateLiftSpeed();
+  calculateCollectingArm();
 
+  Serial.println(stateCom1);
+  Serial.println(stateCom2);
+  Serial.println(stateCom3);
+  Serial.println(stateCom4);
+  Serial.println(stateCom5);
+  Serial.println("");
+  
   /*
     Serial.print(myData.rt);
     Serial.print(" ");
