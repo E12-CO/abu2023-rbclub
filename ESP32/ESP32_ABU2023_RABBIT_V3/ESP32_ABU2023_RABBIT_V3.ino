@@ -142,24 +142,21 @@ hw_timer_t *timer1 = NULL;
 float RPM[4] = { 0, 0, 0, 0 };
 int16_t xComponent = 0, yComponent = 0, zComponent = 0, wComponent = 0;
 
-// Calculate Linear motor speed
-// This motor is used to adjust the aiming angle
-// of the Rollers.
-// Status DONE UNTESTED
+// FIXME : Make it work
 void calculateLinearMotorSpeed() {
-  if (elevationCounter > prevElevationCounter && !elevationRunning) {
+  if ((elevationCounter > prevElevationCounter) && !elevationRunning) {
     prevElevationMillis = millis();
     elevationDir = 1;
     BoxA.setPWM(BOX_A_LinearMotor, 4200, elevationDir);// Set motor 3 of Box A to max PWM (4200) with direction of spin up
     elevationRunning = 1;
-  } else if (elevationCounter < prevElevationCounter && !elevationRunning) {
+  } else if ((elevationCounter < prevElevationCounter) && !elevationRunning) {
     prevElevationMillis = millis();
     elevationDir = 2;
     BoxA.setPWM(BOX_A_LinearMotor, 4200, elevationDir);// Set motor 3 of Box A to max PWM (4200) with direction of spin down
     elevationRunning = 1;
   }
 
-  if (millis() - prevElevationMillis > elevationInterval && elevationRunning) {
+  if (((millis() - prevElevationMillis) > elevationInterval) && elevationRunning) {
 
     if (elevationDir == 1) {
       prevElevationCounter++;
@@ -176,6 +173,8 @@ void calculateLinearMotorSpeed() {
   }
 }
 
+// TODO : Compatibility with new CRU sub-board firmware
+// INFO : Might be removed as the CRU sub-board will be controlled directly from the Joy controller
 void calculateSubSystem() {
   if (!stateLT) {
     subData.lockMotor = 1;
@@ -193,6 +192,7 @@ void calculateSubSystem() {
   esp_now_send(broadcastAddress, (uint8_t *)&subData, sizeof(sub_message));
 }
 
+// TODO : Real test to find the right motor speed.
 void calculateRollerSpeed() {
   if (!stateRD) {// Right hand - Bottom
     upperRollerSpeed = 0;
@@ -210,11 +210,11 @@ void calculateRollerSpeed() {
 
   //rollerSpeed
 
-  //  if (myData.encl != prevEncL) {
-  //    upperRollerSpeed += (myData.encl - prevEncL) * 100;
-  //    lowerRollerSpeed += (myData.encl - prevEncL) * 100;
-  //    prevEncL = myData.encl;
-  //  }
+    if (myData.encl != prevEncL) {
+      upperRollerSpeed += (myData.encl - prevEncL) * 100;
+      lowerRollerSpeed += (myData.encl - prevEncL) * 100;
+      prevEncL = myData.encl;
+    }
 
   if (upperRollerSpeed < -5200) {
     upperRollerSpeed = -5200;
@@ -228,10 +228,10 @@ void calculateRollerSpeed() {
     lowerRollerSpeed = 0;
   }
 
-  //  if (myData.encr != prevEncR) {
-  //    elevationCounter += (myData.encr - prevEncR);
-  //    prevEncR = myData.encr;
-  //  }
+    if (myData.encr != prevEncR) {
+      elevationCounter += (myData.encr - prevEncR);
+      prevEncR = myData.encr;
+    }
 
   // Ring push (into the roller)
   // TODO : This will be moved to Sub board.
@@ -243,21 +243,19 @@ void calculateRollerSpeed() {
   //    BoxA.setPWM(4, 4200, 0);
   //  }
 }
-// TODO : Change to singke lead screw. - Done
-// TODO2 : Check the correlation between button and motor direction.
+// FIXME : For some reason, It didn't work - Test require
 void calculateLiftSpeed() {// Calculate lead screw
-
   // 2100 is 24Volt/12Volt * 4200. A PWM value for 12V.
 
-  if ((stateCom1 == 0) && (stateCom2 == 1)) { // com 1 is pressed
+  if ((!stateCom1) && (stateCom2)) { // com 1 is pressed
     BoxA.setPWM(BOX_A_LeadScrew, 2100, 0x01);
-  } else if ((stateCom1 == 1) && (stateCom2 == 0)) { // com 2 is pressed
+  } else if ((stateCom1) && (!stateCom2)) { // com 2 is pressed
     BoxA.setPWM(BOX_A_LeadScrew, 2100, 0x02);
   } else {
     BoxA.setPWM(BOX_A_LeadScrew, 4200, 0x00);// Stop motor using regen-braking
   }
 
-  // stateCom4 is left toggle switch
+  // stateCom4 is left toggle switch. Reserved to do something else
 
 }
 
